@@ -314,57 +314,27 @@ export function genRotations(
   return result;
 }
 
+export function isFictitiousId(id: string): boolean {
+  if (!id) return false;
+  return id.startsWith('rot-2026-') || ['rot-2026-1', 'rot-2026-2', 'rot-2026-3', 'rot-2026-4', 'rot-2026-5', 'rot-2026-6'].includes(id);
+}
+
+export function isFictitiousRotation(rot: Rotation): boolean {
+  if (!rot) return false;
+  return isFictitiousId(rot.id);
+}
+
+export function isFictitiousMonth(monthKey: string, monthData: any): boolean {
+  if (!monthData || typeof monthData !== 'object') return false;
+  if (typeof monthData.notes === 'string' && monthData.notes.includes('TechnipFMC (Thiago Faria)')) {
+    return true;
+  }
+  return false;
+}
+
 export function getInitialDefaultRotations(): Rotation[] {
-  return [
-    {
-      id: 'rot-2026-1',
-      saidaBR: '2026-01-13',
-      chegadaSR: '2026-01-14',
-      saidaSR: '2026-02-10',
-      chegadaBR: '2026-02-11',
-      nota: 'Escala 28×28 · Rotação 1 (28 dias)',
-    },
-    {
-      id: 'rot-2026-2',
-      saidaBR: '2026-03-10',
-      chegadaSR: '2026-03-11',
-      saidaSR: '2026-04-07',
-      chegadaBR: '2026-04-08',
-      nota: 'Escala 28×28 · Rotação 2 (28 dias)',
-    },
-    {
-      id: 'rot-2026-3',
-      saidaBR: '2026-05-05',
-      chegadaSR: '2026-05-06',
-      saidaSR: '2026-06-02',
-      chegadaBR: '2026-06-03',
-      nota: 'Escala 28×28 · Rotação 3 (28 dias)',
-    },
-    {
-      id: 'rot-2026-4',
-      saidaBR: '2026-07-07',
-      chegadaSR: '2026-07-08',
-      saidaSR: '2026-08-04',
-      chegadaBR: '2026-08-05',
-      nota: 'Escala 28×28 · Rotação 4 (28 dias)',
-    },
-    {
-      id: 'rot-2026-5',
-      saidaBR: '2026-09-23',
-      chegadaSR: '2026-09-24',
-      saidaSR: '2026-10-30',
-      chegadaBR: '2026-10-31',
-      nota: 'Rotação Holerites Reais (Set/Out 2026) · TechnipFMC',
-    },
-    {
-      id: 'rot-2026-6',
-      saidaBR: '2026-11-24',
-      chegadaSR: '2026-11-25',
-      saidaSR: '2026-12-22',
-      chegadaBR: '2026-12-23',
-      nota: 'Escala 28×28 · Rotação 6 (28 dias)',
-    },
-  ];
+  // Return empty list by default - real rotations must come from user or Supabase
+  return [];
 }
 
 export function getInitialState(): AppState {
@@ -378,64 +348,8 @@ export function getInitialState(): AppState {
       metodoIRRF: 'progressivo',
     },
     holidays: [...DEFAULT_HOLIDAYS_2026],
-    rotations: getInitialDefaultRotations(),
-    months: {
-      '2026-09': {
-        salario: 14395.77,
-        cambio: 5.152714,
-        he: 8.80,
-        heVal: 921.40,
-        dsr: 184.28,
-        sobreaviso: 575.83,
-        periculosidade: 4318.73,
-        diasSR: 7,
-        diasOffshore: 6,
-        dobra: 0,
-        valorDobra: 0,
-        servicoCampo: 1075.38,
-        noturnoCampo: 1259.58,
-        valorViagem: 172.75,
-        folgasIndenizadas: 3598.94,
-        bonusViagemExterior: 1803.45,
-        trabalhoExterior: 839.75,
-        inss: 988.07,
-        irrf: 6599.07,
-        copart: 54.18,
-        odonto: 124.00,
-        prev: 0,
-        pgbl: 287.92,
-        confirmed: true,
-        confirmedAt: '2026-09-30T23:59:59.000Z',
-        notes: 'Recibo Pagto 09/2026 · TechnipFMC (Thiago Faria)',
-      },
-      '2026-10': {
-        salario: 14395.77,
-        cambio: 5.0277,
-        he: 6.88,
-        heVal: 720.36,
-        dsr: 138.53,
-        sobreaviso: 2879.15,
-        periculosidade: 4318.73,
-        diasSR: 30,
-        diasOffshore: 30,
-        dobra: 8,
-        valorDobra: 17743.20,
-        servicoCampo: 5376.90,
-        noturnoCampo: 6297.90,
-        valorViagem: 0,
-        bonusViagemExterior: 7541.55,
-        trabalhoExterior: 3598.94,
-        inss: 988.07,
-        irrf: 15911.99,
-        copart: 0,
-        odonto: 124.00,
-        prev: 0,
-        pgbl: 287.92,
-        confirmed: true,
-        confirmedAt: '2026-10-31T23:59:59.000Z',
-        notes: 'Recibo Pagto 10/2026 · TechnipFMC (Thiago Faria)',
-      },
-    },
+    rotations: [],
+    months: {},
     updatedAt: Date.now(),
   };
 }

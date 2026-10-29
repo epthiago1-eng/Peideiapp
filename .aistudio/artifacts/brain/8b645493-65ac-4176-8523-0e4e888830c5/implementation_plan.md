@@ -100,3 +100,14 @@ Implementar um portão de entrada com tela de login obrigatória na abertura do 
 4. **Garantia de Sincronização Bidirecional (`src/sync.ts`)**:
    - Ao autenticar: busca `user_state`. Se não existir registro remoto, sobe os dados iniciais de 2026 para o Supabase.
    - A cada alteração local: salva no Supabase (debounced 900ms) tanto no `user_state` quanto nas tabelas relacionais.
+
+---
+
+## 4. Status de Execução & Correção das Rotações Supabase
+
+- [x] **Remoção de Rotações Fictícias**: Todas as 6 rotações simuladas (`rot-2026-1` a `rot-2026-6`) foram completamente removidas do código inicial (`calc.ts`), do storage (`storage.ts`) e do script SQL do banco.
+- [x] **Detecção e Limpeza Automática**: Implementada função `isFictitiousRotation` que elimina dados fictícios legados do cache e do banco.
+- [x] **Puxar Dados Reais do Supabase (`pullRemoteState`)**: Criado método que busca diretamente nas tabelas `rotations` e `user_state` do Supabase ao abrir o app ou fazer login, sem sobrescrever com valores dummy locais.
+- [x] **Enviar Dados Reais ao Supabase (`saveRemoteState`)**: Atualizada a sincronização para refletir inclusões, edições e remoções reais de rotações, limpando qualquer registro excluído do banco.
+- [x] **Botão de Sincronização na Tela de Rotações**: Adicionado controle "Supabase" no cabeçalho de `RotationsScreen.tsx` para sincronização manual imediata e feedback visual.
+- [x] **Compilação e Testes Aprovados**: Build TypeScript sem erros e suíte completa de testes de proventos, dobras e impostos 100% aprovada.

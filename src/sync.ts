@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
-import { AppState } from './types';
+import { getInitialState, isFictitiousId, isFictitiousMonth, isFictitiousRotation } from './calc';
+import { AppState, Rotation } from './types';
 
 export type SyncStatus = 'synced' | 'syncing' | 'error' | 'local';
 
@@ -223,7 +224,7 @@ create policy "Users can insert own holidays" on public.holidays for insert with
 create policy "Users can update own holidays" on public.holidays for update using (auth.uid() = user_id);
 create policy "Users can delete own holidays" on public.holidays for delete using (auth.uid() = user_id);
 
--- 7. FUNÇÃO DE CARGA INICIAL: seed_user_data_2026
+-- 7. FUNÇÃO DE CARGA INICIAL: seed_user_data_2026 (Sem rotações fictícias)
 create or replace function public.seed_user_data_2026(target_user_id uuid)
 returns void as $$
 declare
@@ -264,25 +265,9 @@ begin
     (target_user_id, '2026-12-25', 'Natal', true)
   on conflict (user_id, date) do nothing;
 
-  insert into public.rotations (id, user_id, saida_br, chegada_sr, saida_sr, chegada_br, nota) values
-    ('rot-2026-1', target_user_id, '2026-01-13', '2026-01-14', '2026-02-11', '2026-02-12', 'Escala 28×28 · Rotação 1'),
-    ('rot-2026-2', target_user_id, '2026-03-10', '2026-03-11', '2026-04-08', '2026-04-09', 'Escala 28×28 · Rotação 2'),
-    ('rot-2026-3', target_user_id, '2026-05-05', '2026-05-06', '2026-06-03', '2026-06-04', 'Escala 28×28 · Rotação 3'),
-    ('rot-2026-4', target_user_id, '2026-07-07', '2026-07-08', '2026-08-05', '2026-08-06', 'Escala 28×28 · Rotação 4'),
-    ('rot-2026-5', target_user_id, '2026-09-23', '2026-09-24', '2026-10-30', '2026-10-31', 'Rotação Holerites Reais (Set/Out 2026) · TechnipFMC'),
-    ('rot-2026-6', target_user_id, '2026-11-24', '2026-11-25', '2026-12-23', '2026-12-24', 'Escala 28×28 · Rotação 6')
-  on conflict (user_id, id) do update set saida_br = excluded.saida_br, chegada_sr = excluded.chegada_sr, saida_sr = excluded.saida_sr, chegada_br = excluded.chegada_br, nota = excluded.nota, updated_at = now();
-
-  insert into public.month_overrides (
-    user_id, month_key, salario, cambio, he, he_val, dsr, sobreaviso,
-    periculosidade, dias_sr, dias_offshore, dobra, valor_dobra,
-    servico_campo, noturno_campo, viagens, valor_viagem, folgas_indenizadas,
-    bonus_viagem_exterior, trabalho_exterior, inss, irrf, copart,
-    odonto, prev, pgbl, confirmed, confirmed_at, notes
-  ) values
-    (target_user_id, '2026-09', 14395.77, 5.152714, 8.80, 921.40, 184.28, 575.83, 4318.73, 7, 6, 0.00, 0.00, 1075.38, 1259.58, 1, 172.75, 3598.94, 1803.45, 839.75, 988.07, 6599.07, 54.18, 124.00, 0.00, 287.92, true, '2026-09-30 23:59:59+00', 'Recibo Pagto 09/2026 · TechnipFMC (Thiago Faria)'),
-    (target_user_id, '2026-10', 14395.77, 5.027700, 6.88, 720.36, 138.53, 2879.15, 4318.73, 30, 30, 8.00, 17743.20, 5376.90, 6297.90, 0, 0.00, 0.00, 7541.55, 3598.94, 988.07, 15911.99, 0.00, 124.00, 0.00, 287.92, true, '2026-10-31 23:59:59+00', 'Recibo Pagto 10/2026 · TechnipFMC (Thiago Faria)')
-  on conflict (user_id, month_key) do update set salario = excluded.salario, cambio = excluded.cambio, he = excluded.he, he_val = excluded.he_val, dsr = excluded.dsr, sobreaviso = excluded.sobreaviso, periculosidade = excluded.periculosidade, dias_sr = excluded.dias_sr, dias_offshore = excluded.dias_offshore, dobra = excluded.dobra, valor_dobra = excluded.valor_dobra, servico_campo = excluded.servico_campo, noturno_campo = excluded.noturno_campo, valor_viagem = excluded.valor_viagem, folgas_indenizadas = excluded.folgas_indenizadas, bonus_viagem_exterior = excluded.bonus_viagem_exterior, trabalho_exterior = excluded.trabalho_exterior, inss = excluded.inss, irrf = excluded.irrf, copart = excluded.copart, odonto = excluded.odonto, prev = excluded.prev, pgbl = excluded.pgbl, confirmed = excluded.confirmed, confirmed_at = excluded.confirmed_at, notes = excluded.notes, updated_at = now();
+  -- Remove any legacy fictitious rotations or mock overrides if present
+  delete from public.rotations where user_id = target_user_id and id in ('rot-2026-1', 'rot-2026-2', 'rot-2026-3', 'rot-2026-4', 'rot-2026-5', 'rot-2026-6');
+  delete from public.month_overrides where user_id = target_user_id and notes like '%TechnipFMC (Thiago Faria)%';
 
   insert into public.user_state (user_id, data, updated_at) values (
     target_user_id,
@@ -308,32 +293,8 @@ begin
         jsonb_build_object('date', '2026-11-20', 'name', 'Consciência Negra'),
         jsonb_build_object('date', '2026-12-25', 'name', 'Natal')
       ),
-      'rotations', jsonb_build_array(
-        jsonb_build_object('id', 'rot-2026-1', 'saidaBR', '2026-01-13', 'chegadaSR', '2026-01-14', 'saidaSR', '2026-02-11', 'chegadaBR', '2026-02-12', 'nota', 'Escala 28×28 · Rotação 1'),
-        jsonb_build_object('id', 'rot-2026-2', 'saidaBR', '2026-03-10', 'chegadaSR', '2026-03-11', 'saidaSR', '2026-04-08', 'chegadaBR', '2026-04-09', 'nota', 'Escala 28×28 · Rotação 2'),
-        jsonb_build_object('id', 'rot-2026-3', 'saidaBR', '2026-05-05', 'chegadaSR', '2026-05-06', 'saidaSR', '2026-06-03', 'chegadaBR', '2026-06-04', 'nota', 'Escala 28×28 · Rotação 3'),
-        jsonb_build_object('id', 'rot-2026-4', 'saidaBR', '2026-07-07', 'chegadaSR', '2026-07-08', 'saidaSR', '2026-08-05', 'chegadaBR', '2026-08-06', 'nota', 'Escala 28×28 · Rotação 4'),
-        jsonb_build_object('id', 'rot-2026-5', 'saidaBR', '2026-09-23', 'chegadaSR', '2026-09-24', 'saidaSR', '2026-10-30', 'chegadaBR', '2026-10-31', 'nota', 'Rotação Holerites Reais (Set/Out 2026) · TechnipFMC'),
-        jsonb_build_object('id', 'rot-2026-6', 'saidaBR', '2026-11-24', 'chegadaSR', '2026-11-25', 'saidaSR', '2026-12-23', 'chegadaBR', '2026-12-24', 'nota', 'Escala 28×28 · Rotação 6')
-      ),
-      'months', jsonb_build_object(
-        '2026-09', jsonb_build_object(
-          'salario', 14395.77, 'cambio', 5.152714, 'he', 8.80, 'heVal', 921.40, 'dsr', 184.28,
-          'sobreaviso', 575.83, 'periculosidade', 4318.73, 'diasSR', 7, 'diasOffshore', 6, 'dobra', 0,
-          'valorDobra', 0, 'servicoCampo', 1075.38, 'noturnoCampo', 1259.58, 'valorViagem', 172.75,
-          'folgasIndenizadas', 3598.94, 'bonusViagemExterior', 1803.45, 'trabalhoExterior', 839.75,
-          'inss', 988.07, 'irrf', 6599.07, 'copart', 54.18, 'odonto', 124.00, 'prev', 0, 'pgbl', 287.92,
-          'confirmed', true, 'confirmedAt', '2026-09-30T23:59:59.000Z', 'notes', 'Recibo Pagto 09/2026 · TechnipFMC (Thiago Faria)'
-        ),
-        '2026-10', jsonb_build_object(
-          'salario', 14395.77, 'cambio', 5.0277, 'he', 6.88, 'heVal', 720.36, 'dsr', 138.53,
-          'sobreaviso', 2879.15, 'periculosidade', 4318.73, 'diasSR', 30, 'diasOffshore', 30, 'dobra', 8,
-          'valorDobra', 17743.20, 'servicoCampo', 5376.90, 'noturnoCampo', 6297.90, 'valorViagem', 0,
-          'bonusViagemExterior', 7541.55, 'trabalhoExterior', 3598.94, 'inss', 988.07, 'irrf', 15911.99,
-          'copart', 0, 'odonto', 124.00, 'prev', 0, 'pgbl', 287.92, 'confirmed', true,
-          'confirmedAt', '2026-10-31T23:59:59.000Z', 'notes', 'Recibo Pagto 10/2026 · TechnipFMC (Thiago Faria)'
-        )
-      ),
+      'rotations', '[]'::jsonb,
+      'months', '{}'::jsonb,
       'updatedAt', floor(extract(epoch from now()) * 1000)
     ),
     now()
@@ -588,6 +549,155 @@ class SupabaseSyncService {
     }
   }
 
+  // Pull remote state from Supabase (checking both user_state and rotations table)
+  public async pullRemoteState(onStateUpdate?: (remoteState: AppState) => void): Promise<{ success: boolean; message: string; remoteState?: AppState }> {
+    if (!this.client) {
+      this.setStatus('local', 'Supabase não configurado');
+      return { success: false, message: 'Supabase não configurado.' };
+    }
+
+    if (!this.currentUser) {
+      this.setStatus('local', 'Faça login para carregar da nuvem');
+      return { success: false, message: 'Nenhum usuário conectado.' };
+    }
+
+    try {
+      this.setStatus('syncing', 'Buscando dados no Supabase…');
+
+      // 1. Fetch user_state JSON
+      const { data: stateRow, error: stateError } = await this.client
+        .from('user_state')
+        .select('data, updated_at')
+        .eq('user_id', this.currentUser.id)
+        .maybeSingle();
+
+      if (stateError && stateError.code !== 'PGRST116') {
+        const msg = (stateError.message || '').toLowerCase();
+        if (stateError.code === '42P01' || msg.includes('user_state') || msg.includes('does not exist') || msg.includes('schema cache')) {
+          this.setStatus('error', 'Tabela "user_state" não encontrada no Supabase.');
+          return { success: false, message: 'Tabela user_state não existe no Supabase.' };
+        }
+        console.warn('Supabase fetch user_state notice:', stateError);
+      }
+
+      // 2. Fetch real rotations directly from relational table 'rotations'
+      let rotRows: any[] | null = null;
+      try {
+        const { data: fetchedRotations, error: rotError } = await this.client
+          .from('rotations')
+          .select('*')
+          .eq('user_id', this.currentUser.id)
+          .order('saida_br', { ascending: true });
+
+        if (!rotError && fetchedRotations) {
+          rotRows = fetchedRotations;
+        }
+      } catch (err) {
+        console.warn('Error querying rotations table:', err);
+      }
+
+      // 3. Purge any fictitious dummy rotations from database if present
+      const fictitiousIds = ['rot-2026-1', 'rot-2026-2', 'rot-2026-3', 'rot-2026-4', 'rot-2026-5', 'rot-2026-6'];
+      if (rotRows && rotRows.some((r) => isFictitiousId(r.id))) {
+        try {
+          const idsToRemove = rotRows.filter((r) => isFictitiousId(r.id)).map((r) => r.id);
+          await this.client
+            .from('rotations')
+            .delete()
+            .eq('user_id', this.currentUser.id)
+            .in('id', idsToRemove);
+          rotRows = rotRows.filter((r) => !isFictitiousId(r.id));
+        } catch {
+          // Non-blocking
+        }
+      }
+
+      // 4. Construct authoritative remote state
+      let remoteState: AppState;
+      if (stateRow && stateRow.data && typeof stateRow.data === 'object') {
+        remoteState = stateRow.data as AppState;
+        // Clean fictitious rotations from user_state
+        if (Array.isArray(remoteState.rotations)) {
+          remoteState.rotations = remoteState.rotations.filter((r) => !isFictitiousRotation(r));
+        } else {
+          remoteState.rotations = [];
+        }
+      } else {
+        remoteState = getInitialState();
+        remoteState.rotations = [];
+      }
+
+      // If the relational 'rotations' table had rows, use them as source of truth
+      if (rotRows !== null && rotRows.length > 0) {
+        remoteState.rotations = rotRows
+          .filter((r) => !isFictitiousId(r.id))
+          .map((r) => ({
+            id: r.id,
+            saidaBR: r.saida_br,
+            chegadaSR: r.chegada_sr,
+            saidaSR: r.saida_sr,
+            chegadaBR: r.chegada_br,
+            nota: r.nota || '',
+          }));
+      }
+
+      // Purge any fictitious months from remoteState
+      let hadFictitiousMonth = false;
+      if (remoteState.months && typeof remoteState.months === 'object') {
+        const cleanMonths: Record<string, any> = {};
+        for (const [key, val] of Object.entries(remoteState.months)) {
+          if (!isFictitiousMonth(key, val)) {
+            cleanMonths[key] = val;
+          } else {
+            hadFictitiousMonth = true;
+          }
+        }
+        remoteState.months = cleanMonths;
+      } else {
+        remoteState.months = {};
+      }
+
+      remoteState.updatedAt = stateRow?.updated_at ? new Date(stateRow.updated_at).getTime() : Date.now();
+
+      // Clean up legacy fictitious rotations and fictitious months from user_state and month_overrides in Supabase
+      const hadFictitiousRot = Boolean(stateRow && stateRow.data && Array.isArray(stateRow.data.rotations) && stateRow.data.rotations.some((r: any) => isFictitiousRotation(r)));
+      if (hadFictitiousRot || hadFictitiousMonth) {
+        try {
+          const existingData = (stateRow && stateRow.data && typeof stateRow.data === 'object') ? stateRow.data : {};
+          await this.client
+            .from('user_state')
+            .upsert({
+              user_id: this.currentUser.id,
+              data: { ...existingData, rotations: remoteState.rotations, months: remoteState.months },
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id' });
+
+          if (hadFictitiousMonth) {
+            await this.client
+              .from('month_overrides')
+              .delete()
+              .eq('user_id', this.currentUser.id)
+              .like('notes', '%TechnipFMC (Thiago Faria)%');
+          }
+        } catch {
+          // Non-blocking
+        }
+      }
+
+      if (onStateUpdate) {
+        onStateUpdate(remoteState);
+      }
+
+      this.setStatus('synced', 'Dados atualizados do Supabase');
+      return { success: true, message: 'Dados e rotações obtidos do Supabase com sucesso!', remoteState };
+    } catch (err: unknown) {
+      console.error('pullRemoteState error:', err);
+      const msg = err instanceof Error ? err.message : 'Falha ao buscar dados no Supabase';
+      this.setStatus('error', msg);
+      return { success: false, message: msg };
+    }
+  }
+
   // Direct manual sync (fetch remote + push local)
   public async forceSync(state: AppState, onStateUpdate?: (remoteState: AppState) => void): Promise<{ success: boolean; message: string; tableMissing?: boolean }> {
     if (this.isSyncing) {
@@ -608,44 +718,22 @@ class SupabaseSyncService {
     this.setStatus('syncing', 'Sincronizando…');
 
     try {
-      // 1. Fetch remote record
-      const { data, error } = await this.client
-        .from('user_state')
-        .select('data, updated_at')
-        .eq('user_id', this.currentUser.id)
-        .maybeSingle();
+      // 1. First pull remote state from Supabase
+      const pullRes = await this.pullRemoteState(onStateUpdate);
+      if (pullRes.success && pullRes.remoteState) {
+        const remoteRotations = pullRes.remoteState.rotations || [];
+        const localCleanRotations = (state.rotations || []).filter((r) => !isFictitiousRotation(r));
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Supabase fetch error:', error);
-        const errMsg = error.message || '';
-        const isTableMissing = error.code === '42P01' || errMsg.toLowerCase().includes('user_state') || errMsg.toLowerCase().includes('does not exist') || errMsg.toLowerCase().includes('schema cache');
-        
-        if (isTableMissing) {
-          this.setStatus('error', 'Tabela "user_state" não existe no Supabase. É necessário rodar o script SQL.');
-          return {
-            success: false,
-            tableMissing: true,
-            message: 'Tabela "user_state" não existe no Supabase. Execute o SQL no painel do Supabase.',
-          };
+        // If local has real user rotations and remote has none, push local to remote
+        if (remoteRotations.length === 0 && localCleanRotations.length > 0) {
+          const saveRes = await this.saveRemoteState(state);
+          return saveRes;
         }
 
-        this.setStatus('error', errMsg);
-        return { success: false, message: errMsg };
+        return pullRes;
       }
 
-      if (data && data.updated_at) {
-        const remoteUpdatedAt = new Date(data.updated_at).getTime();
-        const localUpdatedAt = state.updatedAt || 0;
-
-        // Last-write-wins: If remote is strictly newer, pull down remote
-        if (remoteUpdatedAt > localUpdatedAt && onStateUpdate && data.data) {
-          onStateUpdate(data.data as AppState);
-          this.setStatus('synced', 'Dados atualizados da nuvem');
-          return { success: true, message: 'Dados mais recentes obtidos da nuvem com sucesso!' };
-        }
-      }
-
-      // If local is newer or equal, push local to remote
+      // 2. If no remote state was found in Supabase, push current state to initialize
       const saveRes = await this.saveRemoteState(state);
       return saveRes;
     } catch (err: unknown) {
@@ -658,7 +746,7 @@ class SupabaseSyncService {
     }
   }
 
-  private async saveRemoteState(state: AppState): Promise<{ success: boolean; message: string; tableMissing?: boolean }> {
+  public async saveRemoteState(state: AppState): Promise<{ success: boolean; message: string; tableMissing?: boolean }> {
     if (!this.client || !this.currentUser) {
       this.setStatus('local');
       return { success: false, message: 'Usuário não conectado ao Supabase.' };
@@ -666,9 +754,25 @@ class SupabaseSyncService {
 
     try {
       const nowIso = new Date().toISOString();
+      const cleanRotations = (state.rotations || []).filter((r) => !isFictitiousRotation(r));
+      const cleanMonths: Record<string, any> = {};
+      if (state.months && typeof state.months === 'object') {
+        for (const [key, val] of Object.entries(state.months)) {
+          if (!isFictitiousMonth(key, val)) {
+            cleanMonths[key] = val;
+          }
+        }
+      }
+      const cleanState: AppState = {
+        ...state,
+        rotations: cleanRotations,
+        months: cleanMonths,
+        updatedAt: Date.now(),
+      };
+
       const payload = {
         user_id: this.currentUser.id,
-        data: state,
+        data: cleanState,
         updated_at: nowIso,
       };
 
@@ -694,8 +798,48 @@ class SupabaseSyncService {
         return { success: false, message: errMsg };
       }
 
-      // Dual-sync to relational tables (user_params, rotations, month_overrides) for direct relational table viewing
+      // Relational tables synchronization: rotations, user_params, month_overrides
       try {
+        // 1. Sync ROTATIONS table:
+        // Query existing rotations for this user to detect deletions and fictitious rotations
+        const { data: dbRotations } = await this.client
+          .from('rotations')
+          .select('id')
+          .eq('user_id', this.currentUser.id);
+
+        const currentIds = cleanRotations.map((r) => r.id);
+        const fictitiousIds = ['rot-2026-1', 'rot-2026-2', 'rot-2026-3', 'rot-2026-4', 'rot-2026-5', 'rot-2026-6'];
+
+        if (dbRotations && dbRotations.length > 0) {
+          const idsToDelete = dbRotations
+            .map((r) => r.id)
+            .filter((id) => !currentIds.includes(id) || fictitiousIds.includes(id) || isFictitiousId(id));
+
+          if (idsToDelete.length > 0) {
+            await this.client
+              .from('rotations')
+              .delete()
+              .eq('user_id', this.currentUser.id)
+              .in('id', idsToDelete);
+          }
+        }
+
+        // Upsert real rotations
+        if (cleanRotations.length > 0) {
+          const rotRows = cleanRotations.map((r) => ({
+            id: r.id,
+            user_id: this.currentUser!.id,
+            saida_br: r.saidaBR,
+            chegada_sr: r.chegadaSR,
+            saida_sr: r.saidaSR,
+            chegada_br: r.chegadaBR,
+            nota: r.nota || '',
+            updated_at: nowIso,
+          }));
+          await this.client.from('rotations').upsert(rotRows, { onConflict: 'user_id,id' });
+        }
+
+        // 2. Sync user_params table
         const p = state.params;
         if (p) {
           await this.client.from('user_params').upsert({
@@ -737,23 +881,9 @@ class SupabaseSyncService {
           }, { onConflict: 'user_id' });
         }
 
-        if (Array.isArray(state.rotations) && state.rotations.length > 0) {
-          const rotRows = state.rotations.map((r) => ({
-            id: r.id,
-            user_id: this.currentUser!.id,
-            saida_br: r.saidaBR,
-            chegada_sr: r.chegadaSR,
-            saida_sr: r.saidaSR,
-            chegada_br: r.chegadaBR,
-            nota: r.nota || '',
-            updated_at: nowIso,
-          }));
-          await this.client.from('rotations').upsert(rotRows, { onConflict: 'user_id,id' });
-        }
-
-        if (state.months && typeof state.months === 'object') {
-          const monthEntries = Object.entries(state.months);
-          if (monthEntries.length > 0) {
+        // 3. Sync month_overrides table
+        const monthEntries = Object.entries(cleanMonths);
+        if (monthEntries.length > 0) {
             const monthRows = monthEntries.map(([key, m]) => ({
               user_id: this.currentUser!.id,
               month_key: key,
@@ -788,7 +918,6 @@ class SupabaseSyncService {
             }));
             await this.client.from('month_overrides').upsert(monthRows, { onConflict: 'user_id,month_key' });
           }
-        }
       } catch (relErr) {
         // Non-blocking if relational tables aren't created yet or have minor variance
         console.warn('Relational sync notice:', relErr);

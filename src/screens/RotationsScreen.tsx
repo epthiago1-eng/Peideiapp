@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { addDays, daysBetweenInclusive, formatISODate, genRotations, parseISODate, ROTATION_PRESETS } from '../calc';
+import React, { useEffect, useState } from 'react';
+import { addDays, daysBetweenInclusive, formatISODate, genRotations, isFictitiousRotation, parseISODate, ROTATION_PRESETS } from '../calc';
 import { BottomSheet } from '../components/BottomSheet';
 import { RotationCard } from '../components/RotationCard';
 import { Toggle } from '../components/Toggle';
+import { syncManager } from '../sync';
 import { AppState, Rotation } from '../types';
 
 interface RotationsScreenProps {
@@ -17,6 +18,15 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
   showToast,
 }) => {
   const { rotations, params } = state;
+  const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
+
+  // Auto-clean any legacy fictitious rotations if detected in state
+  useEffect(() => {
+    if (rotations.some((r) => isFictitiousRotation(r))) {
+      const cleaned = rotations.filter((r) => !isFictitiousRotation(r));
+      onUpdateRotations(cleaned);
+    }
+  }, [rotations, onUpdateRotations]);
 
   // Sheet states
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -250,6 +260,24 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
     showToast(`${generated.length} rotações geradas com sucesso!`);
   };
 
+  const handleSyncSupabase = async () => {
+    setIsSyncingSupabase(true);
+    try {
+      const res = await syncManager.forceSync(state, (remoteState) => {
+        onUpdateRotations(remoteState.rotations || []);
+      });
+      if (res.success) {
+        showToast('Sincronizado com Supabase!');
+      } else {
+        showToast(res.message);
+      }
+    } catch {
+      showToast('Erro ao sincronizar');
+    } finally {
+      setIsSyncingSupabase(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-200">
       {/* Screen Header */}
@@ -267,9 +295,20 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={handleSyncSupabase}
+            disabled={isSyncingSupabase}
+            title="Sincronizar rotações com Supabase"
+            className="flex items-center gap-1.5 rounded-full bg-white dark:bg-[#1c1c1e] px-3.5 py-2 text-[13px] font-bold text-[#30d158] shadow-[0_1px_2px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.08)] dark:shadow-none border border-black/[0.04] dark:border-white/[0.08] hover:scale-105 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <span className={`w-2 h-2 rounded-full bg-[#30d158] ${isSyncingSupabase ? 'animate-ping' : ''}`} />
+            <span>{isSyncingSupabase ? 'Sincronizando…' : 'Supabase'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleOpenGenerator}
             title="Gerar / Popular escala para frente"
-            className="flex items-center gap-1.5 rounded-full bg-white dark:bg-[#1c1c1e] px-3.5 py-2 text-[13px] font-bold text-[#0a84ff] shadow-[0_1px_2px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.08)] dark:shadow-none border border-black/[0.04] dark:border-white/[0.08] hover:scale-105 active:scale-95 transition-all"
+            className="flex items-center gap-1.5 rounded-full bg-white dark:bg-[#1c1c1e] px-3.5 py-2 text-[13px] font-bold text-[#0a84ff] shadow-[0_1px_2px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.08)] dark:shadow-none border border-black/[0.04] dark:border-white/[0.08] hover:scale-105 active:scale-95 transition-all cursor-pointer"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" />
@@ -295,16 +334,34 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
 
       {/* Rotation Cards List */}
       {sortedRotations.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-[24px] bg-white dark:bg-[#1c1c1e] p-8 text-center border border-black/[0.04] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-none space-y-3 my-8">
-          <span className="text-4xl" role="img" aria-label="Avião">
+        <div className="flex flex-col items-center justify-center rounded-[24px] bg-white dark:bg-[#1c1c1e] p-8 text-center border border-black/[0.04] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-none space-y-4 my-6">
+          <div className="w-16 h-16 rounded-full bg-[#0a84ff]/10 text-[#0a84ff] flex items-center justify-center text-3xl">
             ✈️
-          </span>
-          <h3 className="text-[19px] font-bold text-[#111114] dark:text-[#f5f5f7]">
-            Nenhuma rotação cadastrada
-          </h3>
-          <p className="text-[14px] text-[#6e6e78] dark:text-[#98989f] max-w-xs">
-            Toque em <strong>Popular ano</strong> para preencher automaticamente ou use o botão <strong>+</strong> para adicionar uma rotação.
-          </p>
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-[19px] font-bold text-[#111114] dark:text-[#f5f5f7]">
+              Nenhuma rotação no Supabase
+            </h3>
+            <p className="text-[14px] text-[#6e6e78] dark:text-[#98989f] max-w-sm">
+              Nenhuma rotação fictícia ativa. Adicione as datas reais do seu embarque no Suriname ou use <strong>Popular ano</strong> para programar seus ciclos.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleOpenNew}
+              className="rounded-full bg-[#0a84ff] px-5 py-2.5 text-[14px] font-bold text-white hover:opacity-90 active:scale-95 transition cursor-pointer"
+            >
+              Adicionar rotação
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenGenerator}
+              className="rounded-full bg-black/[0.05] dark:bg-white/[0.08] px-4 py-2.5 text-[14px] font-semibold text-[#111114] dark:text-[#f5f5f7] hover:bg-black/[0.08] dark:hover:bg-white/[0.12] transition cursor-pointer"
+            >
+              Popular ano
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

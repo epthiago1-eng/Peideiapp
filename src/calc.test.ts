@@ -222,8 +222,39 @@ function runAcceptanceTests() {
   console.log('✅ Test 5 (Safety Guards Against NaN/Infinity) PASSED!\n');
 
   // Test 6: September 2026 Real TechnipFMC Paystub Reconciliation (Thiago Faria)
-  const initial = getInitialState();
-  const res6 = computeMonth(initial, 2026, 9);
+  const stateTest6: AppState = {
+    ...getInitialState(),
+    months: {
+      '2026-09': {
+        salario: 14395.77,
+        cambio: 5.152714,
+        he: 8.80,
+        heVal: 921.40,
+        dsr: 184.28,
+        sobreaviso: 575.83,
+        periculosidade: 4318.73,
+        diasSR: 7,
+        diasOffshore: 6,
+        dobra: 0,
+        valorDobra: 0,
+        servicoCampo: 1075.38,
+        noturnoCampo: 1259.58,
+        valorViagem: 172.75,
+        folgasIndenizadas: 3598.94,
+        bonusViagemExterior: 1803.45,
+        trabalhoExterior: 839.75,
+        inss: 988.07,
+        irrf: 6599.07,
+        copart: 54.18,
+        odonto: 124.00,
+        prev: 0,
+        pgbl: 287.92,
+        confirmed: true,
+        confirmedAt: '2026-09-30T23:59:59.000Z',
+      },
+    },
+  };
+  const res6 = computeMonth(stateTest6, 2026, 9);
   console.log('Test 6 Results (September 2026 Real Paystub):');
   console.log(`- Proventos: ${res6.totalProventos.toFixed(2)} (esperado 29145.86)`);
   console.log(`- Descontos: ${res6.totalDescontos.toFixed(2)} (esperado 13811.55)`);
@@ -246,7 +277,38 @@ function runAcceptanceTests() {
   console.log('✅ Test 6 (September 2026 Real Paystub) PASSED!\n');
 
   // Test 7: October 2026 Real TechnipFMC Paystub Reconciliation (Thiago Faria)
-  const res7 = computeMonth(initial, 2026, 10);
+  const stateTest7: AppState = {
+    ...getInitialState(),
+    months: {
+      '2026-10': {
+        salario: 14395.77,
+        cambio: 5.0277,
+        he: 6.88,
+        heVal: 720.36,
+        dsr: 138.53,
+        sobreaviso: 2879.15,
+        periculosidade: 4318.73,
+        diasSR: 30,
+        diasOffshore: 30,
+        dobra: 8,
+        valorDobra: 17743.20,
+        servicoCampo: 5376.90,
+        noturnoCampo: 6297.90,
+        valorViagem: 0,
+        bonusViagemExterior: 7541.55,
+        trabalhoExterior: 3598.94,
+        inss: 988.07,
+        irrf: 15911.99,
+        copart: 0,
+        odonto: 124.00,
+        prev: 0,
+        pgbl: 287.92,
+        confirmed: true,
+        confirmedAt: '2026-10-31T23:59:59.000Z',
+      },
+    },
+  };
+  const res7 = computeMonth(stateTest7, 2026, 10);
   console.log('Test 7 Results (October 2026 Real Paystub):');
   console.log(`- Proventos: ${res7.totalProventos.toFixed(2)} (esperado 63011.03)`);
   console.log(`- Descontos: ${res7.totalDescontos.toFixed(2)} (esperado 23070.29)`);

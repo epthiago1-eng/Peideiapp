@@ -16,6 +16,7 @@ import { YearScreen } from './screens/YearScreen';
 import { hasCompletedOnboarding, loadState, saveState, setOnboardingCompleted } from './storage';
 import { syncManager } from './sync';
 import { AppState, MonthOverride, Rotation } from './types';
+import { isFictitiousMonth, isFictitiousRotation } from './calc';
 
 export default function App() {
   const [state, setState] = useState<AppState>(() => loadState());
@@ -53,11 +54,21 @@ export default function App() {
     }, 2000);
   };
 
-  // Auto-save state to localStorage on every change & queue sync
+  // Auto-save state to localStorage on every change & queue sync to Supabase
   const updateStateAndPersist = (newState: AppState) => {
-    setState(newState);
-    saveState(newState);
-    syncManager.queueSync(newState);
+    const cleanRotations = (newState.rotations || []).filter((r) => !isFictitiousRotation(r));
+    const cleanMonths: Record<string, any> = {};
+    if (newState.months && typeof newState.months === 'object') {
+      for (const [key, val] of Object.entries(newState.months)) {
+        if (!isFictitiousMonth(key, val)) {
+          cleanMonths[key] = val;
+        }
+      }
+    }
+    const cleanState = { ...newState, rotations: cleanRotations, months: cleanMonths };
+    setState(cleanState);
+    saveState(cleanState);
+    syncManager.queueSync(cleanState);
   };
 
   const handleUpdateOverride = (year: number, month: number, override: MonthOverride) => {
@@ -81,27 +92,26 @@ export default function App() {
   };
 
   const handleUpdateRotations = (rotations: Rotation[]) => {
+    const cleanRotations = (rotations || []).filter((r) => !isFictitiousRotation(r));
     const nextState: AppState = {
       ...state,
-      rotations,
+      rotations: cleanRotations,
       updatedAt: Date.now(),
     };
     updateStateAndPersist(nextState);
   };
 
   // Cloud synchronization listener with recursion guard
-  const stateRef = useRef(state);
-  stateRef.current = state;
   const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Check initial session on mount
-    syncManager.checkSession().then((user) => {
+    // Check initial session on mount and pull remote state from Supabase
+    syncManager.checkSession().then(async (user) => {
       setCurrentUser(user);
       setAuthChecking(false);
       if (user) {
         lastUserIdRef.current = user.id;
-        syncManager.forceSync(stateRef.current, (remoteState) => {
+        await syncManager.pullRemoteState((remoteState) => {
           setState(remoteState);
           saveState(remoteState);
         });
@@ -114,7 +124,7 @@ export default function App() {
       const currentUserId = user?.id || null;
       if (currentUserId && currentUserId !== lastUserIdRef.current) {
         lastUserIdRef.current = currentUserId;
-        syncManager.forceSync(stateRef.current, (remoteState) => {
+        syncManager.pullRemoteState((remoteState) => {
           setState(remoteState);
           saveState(remoteState);
         });
@@ -156,10 +166,10 @@ export default function App() {
     return (
       <>
         <AuthScreen
-          onLoginSuccess={(user) => {
+          onLoginSuccess={async (user) => {
             setCurrentUser(user);
             lastUserIdRef.current = user.id;
-            syncManager.forceSync(stateRef.current, (remoteState) => {
+            await syncManager.pullRemoteState((remoteState) => {
               setState(remoteState);
               saveState(remoteState);
             });

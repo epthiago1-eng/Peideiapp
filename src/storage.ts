@@ -1,4 +1,4 @@
-import { getInitialState } from './calc';
+import { getInitialState, isFictitiousMonth, isFictitiousRotation } from './calc';
 import { AppState, Holiday, Params, Rotation } from './types';
 
 export const STORAGE_KEY = 'rotapay:local';
@@ -22,6 +22,13 @@ export function setOnboardingCompleted(completed: boolean): void {
 
 export function loadState(): AppState {
   try {
+    // Purge legacy storage keys if present
+    try {
+      localStorage.removeItem('rotapay_app_state_v1');
+    } catch {
+      // Ignore
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       const initial = getInitialState();
@@ -30,7 +37,7 @@ export function loadState(): AppState {
     }
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object' || !parsed.params || !Array.isArray(parsed.rotations)) {
-      console.warn('Invalid storage content, resetting to initial state');
+      console.warn('Invalid storage content, resetting to initial clean state');
       const initial = getInitialState();
       saveState(initial);
       return initial;
@@ -39,22 +46,23 @@ export function loadState(): AppState {
     const initial = getInitialState();
     const storedMonths = parsed.months && typeof parsed.months === 'object' ? parsed.months : {};
     
-    // Merge stored months on top of initial defaults, preserving any user edits
-    const mergedMonths = {
-      ...initial.months,
-      ...storedMonths,
-    };
+    // Purge any fictitious/mock months (e.g. mock salary or sample paystubs)
+    const cleanMonths: Record<string, any> = {};
+    for (const [key, val] of Object.entries(storedMonths)) {
+      if (!isFictitiousMonth(key, val)) {
+        cleanMonths[key] = val;
+      }
+    }
 
-    // Use stored rotations if available, without forcing rollback
-    const mergedRotations: Rotation[] = Array.isArray(parsed.rotations) && parsed.rotations.length > 0
-      ? parsed.rotations
-      : initial.rotations;
+    // Filter out fictitious or dummy rotations
+    const parsedRotations: Rotation[] = Array.isArray(parsed.rotations) ? parsed.rotations : [];
+    const cleanRotations: Rotation[] = parsedRotations.filter((r) => !isFictitiousRotation(r));
 
     const stateToReturn: AppState = {
       params: { ...initial.params, ...parsed.params },
       holidays: Array.isArray(parsed.holidays) && parsed.holidays.length > 0 ? parsed.holidays : initial.holidays,
-      rotations: mergedRotations,
-      months: mergedMonths,
+      rotations: cleanRotations,
+      months: cleanMonths,
       updatedAt: parsed.updatedAt || Date.now(),
     };
     saveState(stateToReturn);
@@ -67,9 +75,21 @@ export function loadState(): AppState {
 
 export function saveState(state: AppState): void {
   try {
+    const cleanRotations = (state.rotations || []).filter((r) => !isFictitiousRotation(r));
+    const cleanMonths: Record<string, any> = {};
+    if (state.months && typeof state.months === 'object') {
+      for (const [key, val] of Object.entries(state.months)) {
+        if (!isFictitiousMonth(key, val)) {
+          cleanMonths[key] = val;
+        }
+      }
+    }
+
     const stateToSave: AppState = {
       ...state,
-      updatedAt: Date.now(),
+      rotations: cleanRotations,
+      months: cleanMonths,
+      updatedAt: state.updatedAt || Date.now(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
   } catch (err) {
