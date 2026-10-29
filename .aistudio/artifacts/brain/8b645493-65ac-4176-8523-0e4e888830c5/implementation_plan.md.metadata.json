@@ -1,0 +1,6 @@
+{
+  "summary":  "Plano de implementação do banco de dados relacional completo no Supabase: criação de todas as tabelas (user_state, rotations, month_overrides, user_params, holidays, user_profiles), políticas RLS completas e carga inicial com dados oficiais de 2026.",
+  "updatedAt":  "2026-10-29T09:59:08.989146884Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

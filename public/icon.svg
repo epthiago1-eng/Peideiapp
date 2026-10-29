@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="rotapayGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a84ff" />
+      <stop offset="60%" stop-color="#5e5ce6" />
+      <stop offset="120%" stop-color="#bf5af2" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#0a84ff" flood-opacity="0.35" />
+    </filter>
+  </defs>
+  <!-- Background squircle -->
+  <rect x="32" y="32" width="448" height="448" rx="100" ry="100" fill="url(#rotapayGrad)" />
+  <!-- Subtle inner shine -->
+  <circle cx="430" cy="80" r="160" fill="white" opacity="0.12" />
+  <!-- R$ Symbol typography -->
+  <text x="256" y="315" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif" font-size="210" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-6">R$</text>
+</svg>

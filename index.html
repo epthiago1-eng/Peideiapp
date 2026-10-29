@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>RotaPay – Salário de Rotação</title>
+    <meta name="description" content="Calculadora de holerite estimado para engenheiros offshore em escala 28x28 no Suriname." />
+    <meta property="og:title" content="RotaPay – Salário de Rotação" />
+    <meta property="og:description" content="Calculadora de holerite estimado para engenheiros offshore em escala 28x28 no Suriname." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    
+    <!-- PWA & Mobile Web App Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="RotaPay" />
+    <meta name="theme-color" content="#0a84ff" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  </head>
+  <body class="bg-[#f2f2f7] dark:bg-[#000000] text-[#111114] dark:text-[#f5f5f7] select-none antialiased min-h-screen">
+    <script>
+      // Suppress Vite HMR WebSocket connection errors per environment guidelines
+      window.addEventListener('error', function (e) {
+        if (e.message && (e.message.includes('WebSocket') || e.message.includes('@vite/client') || e.filename?.includes('@vite/client'))) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        if (e.reason && (String(e.reason).includes('WebSocket') || String(e.reason).includes('@vite/client'))) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      });
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

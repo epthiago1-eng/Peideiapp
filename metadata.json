@@ -1,0 +1,6 @@
+{
+  "name": "RotaPay",
+  "description": "Calculadora de holerite estimado para engenheiros offshore em escala 28x28 no Suriname.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
