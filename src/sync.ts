@@ -368,12 +368,26 @@ $$;
 
 const CONFIG_STORAGE_KEY = 'rotapay:supabase_config';
 
+export const DEFAULT_SUPABASE_CONFIG: SupabaseConfig = {
+  url: 'https://exlmjkfrupvlioxyedky.supabase.co',
+  anonKey: 'sb_publishable_POS46HYrDZR2chVvHS_4uA_Ir-vE5yN',
+};
+
+function normalizeUrl(url: string): string {
+  return (url || '').trim().replace(/\/+$/, '');
+}
+
 function getStoredConfig(): SupabaseConfig {
   try {
     const raw = localStorage.getItem(CONFIG_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed.url && parsed.anonKey) return parsed;
+      if (parsed.url && parsed.anonKey) {
+        return {
+          url: normalizeUrl(parsed.url),
+          anonKey: parsed.anonKey.trim(),
+        };
+      }
     }
   } catch {
     // Ignore parse errors
@@ -383,8 +397,8 @@ function getStoredConfig(): SupabaseConfig {
   const envKey = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_SUPABASE_ANON_KEY || '';
 
   return {
-    url: envUrl,
-    anonKey: envKey,
+    url: normalizeUrl(envUrl || DEFAULT_SUPABASE_CONFIG.url),
+    anonKey: (envKey || DEFAULT_SUPABASE_CONFIG.anonKey).trim(),
   };
 }
 

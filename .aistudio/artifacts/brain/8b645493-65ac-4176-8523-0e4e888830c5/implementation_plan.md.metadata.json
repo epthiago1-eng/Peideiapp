@@ -1,6 +1,6 @@
 {
-  "summary":  "Plano de implementação do banco de dados relacional completo no Supabase: criação de todas as tabelas (user_state, rotations, month_overrides, user_params, holidays, user_profiles), políticas RLS completas e carga inicial com dados oficiais de 2026.",
-  "updatedAt":  "2026-10-29T09:59:08.989146884Z",
+  "summary":  "Plano de implementação para pré-configurar o Supabase no aplicativo e garantir que ao abrir no Netlify o app já inicie conectado, com pré-preenchimento do e-mail ep.Thiago1@gmail.com e sincronização automática ativa.",
+  "updatedAt":  "2026-10-29T11:17:36.102691305Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
