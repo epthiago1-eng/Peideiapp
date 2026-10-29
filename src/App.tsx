@@ -4,9 +4,11 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import { User } from '@supabase/supabase-js';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { TabBar, TabKey } from './components/TabBar';
 import { Toast } from './components/Toast';
+import { AuthScreen } from './screens/AuthScreen';
 import { MonthScreen } from './screens/MonthScreen';
 import { RotationsScreen } from './screens/RotationsScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
@@ -17,6 +19,8 @@ import { AppState, MonthOverride, Rotation } from './types';
 
 export default function App() {
   const [state, setState] = useState<AppState>(() => loadState());
+  const [currentUser, setCurrentUser] = useState<User | null>(() => syncManager.getUser());
+  const [authChecking, setAuthChecking] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<TabKey>('mes');
   const [showOnboarding, setShowOnboarding] = useState<boolean>(() => !hasCompletedOnboarding());
 
@@ -91,18 +95,22 @@ export default function App() {
   const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Initial sync on mount only if user is already authenticated
-    const initialUser = syncManager.getUser();
-    if (syncManager.isConfigured() && initialUser) {
-      lastUserIdRef.current = initialUser.id;
-      syncManager.forceSync(stateRef.current, (remoteState) => {
-        setState(remoteState);
-        saveState(remoteState);
-      });
-    }
+    // Check initial session on mount
+    syncManager.checkSession().then((user) => {
+      setCurrentUser(user);
+      setAuthChecking(false);
+      if (user) {
+        lastUserIdRef.current = user.id;
+        syncManager.forceSync(stateRef.current, (remoteState) => {
+          setState(remoteState);
+          saveState(remoteState);
+        });
+      }
+    });
 
-    // Subscribe ONLY to user ID change events, NOT every status update
+    // Subscribe ONLY to user ID change events, NOT every status transition
     const unsubscribe = syncManager.subscribe((_status, user) => {
+      setCurrentUser(user);
       const currentUserId = user?.id || null;
       if (currentUserId && currentUserId !== lastUserIdRef.current) {
         lastUserIdRef.current = currentUserId;
@@ -123,6 +131,47 @@ export default function App() {
     };
   }, []);
 
+  // 1. Initial splash loader while checking Supabase session
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-[#f2f2f7] dark:bg-[#000000] flex flex-col items-center justify-center p-4">
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #0a84ff 0%, #5e5ce6 60%, #bf5af2 120%)',
+            boxShadow: '0 8px 24px rgba(10,132,255,0.3)',
+          }}
+          className="flex h-[84px] w-[84px] items-center justify-center rounded-[24px] text-white font-extrabold text-[36px] tracking-tight animate-pulse mb-4 select-none"
+        >
+          R$
+        </div>
+        <div className="text-[14px] font-semibold text-[#6e6e78] dark:text-[#98989f]">
+          Carregando RotaPay…
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Mandatory Auth Gatekeeper: user must be logged in to access app data
+  if (!currentUser) {
+    return (
+      <>
+        <AuthScreen
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            lastUserIdRef.current = user.id;
+            syncManager.forceSync(stateRef.current, (remoteState) => {
+              setState(remoteState);
+              saveState(remoteState);
+            });
+          }}
+          showToast={showToast}
+        />
+        <Toast message={toastMessage} />
+      </>
+    );
+  }
+
+  // 3. Authenticated App Experience
   return (
     <div className="min-h-screen bg-[#f2f2f7] dark:bg-[#000000] text-[#111114] dark:text-[#f5f5f7] flex justify-center selection:bg-[#0a84ff]/25 font-sans">
       {/* Centered mobile-first column */}
@@ -167,7 +216,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Onboarding Setup Wizard */}
+      {/* Onboarding Setup Wizard (only shown on first launch) */}
       {showOnboarding && (
         <OnboardingWizard
           initialState={state}

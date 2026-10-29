@@ -142,11 +142,141 @@ export type RotationPreset = {
 };
 
 export const ROTATION_PRESETS: RotationPreset[] = [
-  { id: '28x28', name: '28×28', diasSR: 29, ciclo: 56, description: '28 dias embarcado + 28 dias folga' },
-  { id: '14x14', name: '14×14', diasSR: 15, ciclo: 28, description: '14 dias embarcado + 14 dias folga' },
-  { id: '21x21', name: '21×21', diasSR: 22, ciclo: 42, description: '21 dias embarcado + 21 dias folga' },
-  { id: 'custom', name: 'Personalizada', diasSR: 29, ciclo: 56, description: 'Duração e ciclo flexíveis' },
+  { id: '28x28', name: '28×28', diasSR: 28, ciclo: 56, description: '28 dias embarcado (sem dobra) + 28 dias folga' },
+  { id: '14x14', name: '14×14', diasSR: 14, ciclo: 28, description: '14 dias embarcado + 14 dias folga' },
+  { id: '21x21', name: '21×21', diasSR: 21, ciclo: 42, description: '21 dias embarcado + 21 dias folga' },
+  { id: '35x35', name: '35×35', diasSR: 35, ciclo: 70, description: '35 dias embarcado (28 regulares + 7 dobras)' },
+  { id: 'custom', name: 'Personalizada', diasSR: 28, ciclo: 56, description: 'Duração e ciclo flexíveis' },
 ];
+
+export const MONTH_NAMES = [
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
+];
+
+export const MONTH_SHORT_NAMES = [
+  'Jan',
+  'Fev',
+  'Mar',
+  'Abr',
+  'Mai',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Set',
+  'Out',
+  'Nov',
+  'Dez',
+];
+
+/**
+ * Resolves the continuous embarkation start date in Suriname for a given rotation.
+ * If consecutive rotations touch without a return to Brazil (gap <= 2 days between saidaSR and chegadaSR),
+ * they form one continuous offshore stretch.
+ */
+export function getContinuousChegadaSR(rot: Rotation, allRotations: Rotation[]): string {
+  if (!allRotations || allRotations.length <= 1) return rot.chegadaSR;
+  const sorted = [...allRotations].sort((a, b) => a.chegadaSR.localeCompare(b.chegadaSR));
+  let currentStart = rot.chegadaSR;
+  let curr = rot;
+
+  while (true) {
+    const prev = sorted.find((r) => {
+      if (r.id === curr.id) return false;
+      const gap = Math.round((parseISODate(curr.chegadaSR).time - parseISODate(r.saidaSR).time) / 86400000);
+      return gap >= 0 && gap <= 2;
+    });
+    if (prev) {
+      currentStart = prev.chegadaSR;
+      curr = prev;
+    } else {
+      break;
+    }
+  }
+
+  return currentStart;
+}
+
+export interface RotationDobraBreakdown {
+  totalDays: number;
+  regularDays: number;
+  dobraDays: number;
+  continuousStartSR: string;
+  isContinuousChain: boolean;
+  monthsBreakdown: Array<{
+    monthKey: string;
+    monthName: string;
+    totalDays: number;
+    regularDays: number;
+    dobraDays: number;
+  }>;
+}
+
+/**
+ * Calculates how many days and dobras a rotation has, including distribution across months.
+ * Rule: Dobras are calculated whenever a continuous rotation exceeds 28 days.
+ * The first 28 days are regular; from the 29th day onwards until returning to Brazil,
+ * all days are dobra (independent of calendar month boundaries).
+ */
+export function getRotationDobraBreakdown(
+  rot: Rotation,
+  allRotations: Rotation[] = [],
+  baseDays = 28
+): RotationDobraBreakdown {
+  const contChegadaSR = getContinuousChegadaSR(rot, allRotations);
+  const totalDays = daysBetweenInclusive(rot.chegadaSR, rot.saidaSR);
+  const startOffset = daysBetweenInclusive(contChegadaSR, rot.chegadaSR) - 1; // days in prior contiguous rotation if chained
+
+  const monthsMap = new Map<string, { regular: number; dobra: number }>();
+
+  let currDate = rot.chegadaSR;
+  for (let i = 0; i < totalDays; i++) {
+    const dayNumber = startOffset + i + 1; // 1-indexed day count in continuous embarkation
+    const isDobra = dayNumber > baseDays;
+    const { year, month } = parseISODate(currDate);
+    const key = `${year}-${month.toString().padStart(2, '0')}`;
+    const entry = monthsMap.get(key) || { regular: 0, dobra: 0 };
+    if (isDobra) entry.dobra++;
+    else entry.regular++;
+    monthsMap.set(key, entry);
+    currDate = addDays(currDate, 1);
+  }
+
+  const monthsBreakdown: RotationDobraBreakdown['monthsBreakdown'] = [];
+  for (const [key, val] of monthsMap.entries()) {
+    const [yStr, mStr] = key.split('-');
+    const m = parseInt(mStr, 10);
+    monthsBreakdown.push({
+      monthKey: key,
+      monthName: `${MONTH_NAMES[m - 1]} ${yStr}`,
+      totalDays: val.regular + val.dobra,
+      regularDays: val.regular,
+      dobraDays: val.dobra,
+    });
+  }
+
+  const rotRegular = Math.min(totalDays, Math.max(0, baseDays - startOffset));
+  const rotDobra = Math.max(0, totalDays - rotRegular);
+
+  return {
+    totalDays,
+    regularDays: rotRegular,
+    dobraDays: rotDobra,
+    continuousStartSR: contChegadaSR,
+    isContinuousChain: contChegadaSR !== rot.chegadaSR,
+    monthsBreakdown,
+  };
+}
 
 /**
  * 3.1 Rotation generator
@@ -190,33 +320,33 @@ export function getInitialDefaultRotations(): Rotation[] {
       id: 'rot-2026-1',
       saidaBR: '2026-01-13',
       chegadaSR: '2026-01-14',
-      saidaSR: '2026-02-11',
-      chegadaBR: '2026-02-12',
-      nota: 'Escala 28×28 · Rotação 1',
+      saidaSR: '2026-02-10',
+      chegadaBR: '2026-02-11',
+      nota: 'Escala 28×28 · Rotação 1 (28 dias)',
     },
     {
       id: 'rot-2026-2',
       saidaBR: '2026-03-10',
       chegadaSR: '2026-03-11',
-      saidaSR: '2026-04-08',
-      chegadaBR: '2026-04-09',
-      nota: 'Escala 28×28 · Rotação 2',
+      saidaSR: '2026-04-07',
+      chegadaBR: '2026-04-08',
+      nota: 'Escala 28×28 · Rotação 2 (28 dias)',
     },
     {
       id: 'rot-2026-3',
       saidaBR: '2026-05-05',
       chegadaSR: '2026-05-06',
-      saidaSR: '2026-06-03',
-      chegadaBR: '2026-06-04',
-      nota: 'Escala 28×28 · Rotação 3',
+      saidaSR: '2026-06-02',
+      chegadaBR: '2026-06-03',
+      nota: 'Escala 28×28 · Rotação 3 (28 dias)',
     },
     {
       id: 'rot-2026-4',
       saidaBR: '2026-07-07',
       chegadaSR: '2026-07-08',
-      saidaSR: '2026-08-05',
-      chegadaBR: '2026-08-06',
-      nota: 'Escala 28×28 · Rotação 4',
+      saidaSR: '2026-08-04',
+      chegadaBR: '2026-08-05',
+      nota: 'Escala 28×28 · Rotação 4 (28 dias)',
     },
     {
       id: 'rot-2026-5',
@@ -230,9 +360,9 @@ export function getInitialDefaultRotations(): Rotation[] {
       id: 'rot-2026-6',
       saidaBR: '2026-11-24',
       chegadaSR: '2026-11-25',
-      saidaSR: '2026-12-23',
-      chegadaBR: '2026-12-24',
-      nota: 'Escala 28×28 · Rotação 6',
+      saidaSR: '2026-12-22',
+      chegadaBR: '2026-12-23',
+      nota: 'Escala 28×28 · Rotação 6 (28 dias)',
     },
   ];
 }
@@ -478,8 +608,11 @@ export function computeMonth(state: AppState, year: number, month: number): Mont
 
       if (dateTime >= chegadaTime && dateTime <= saidaTime) {
         inSR = true;
-        // 1-indexed day count in Suriname during this rotation (chegadaSR = day 1)
-        const currentDayIndex = Math.round((dateTime - chegadaTime) / (24 * 60 * 60 * 1000)) + 1;
+        // Use continuous arrival in Suriname (handles both single rotations spanning months and consecutive chained rotations)
+        const contChegadaSR = getContinuousChegadaSR(rot, rotations);
+        const contChegadaTime = parseISODate(contChegadaSR).time;
+        // 1-indexed day count in Suriname during this continuous rotation (contChegadaSR = day 1)
+        const currentDayIndex = Math.round((dateTime - contChegadaTime) / (24 * 60 * 60 * 1000)) + 1;
         dayInRotation = Math.max(dayInRotation, currentDayIndex);
       }
       if (rot.saidaBR === dateISO) {
@@ -799,36 +932,6 @@ export function computeMonth(state: AppState, year: number, month: number): Mont
     taxDetails,
   };
 }
-
-export const MONTH_NAMES = [
-  'Janeiro',
-  'Fevereiro',
-  'Março',
-  'Abril',
-  'Maio',
-  'Junho',
-  'Julho',
-  'Agosto',
-  'Setembro',
-  'Outubro',
-  'Novembro',
-  'Dezembro',
-];
-
-export const MONTH_SHORT_NAMES = [
-  'Jan',
-  'Fev',
-  'Mar',
-  'Abr',
-  'Mai',
-  'Jun',
-  'Jul',
-  'Ago',
-  'Set',
-  'Out',
-  'Nov',
-  'Dez',
-];
 
 export function getRotationStatus(rotation: Rotation, todayISO?: string): {
   status: 'concluida' | 'andamento' | 'proxima';

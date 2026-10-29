@@ -35,7 +35,7 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
   // Generator form state
   const [genPreset, setGenPreset] = useState('28x28');
   const [genStart, setGenStart] = useState('');
-  const [genDiasSR, setGenDiasSR] = useState(29);
+  const [genDiasSR, setGenDiasSR] = useState(28);
   const [genCiclo, setGenCiclo] = useState(56);
   const [genEnd, setGenEnd] = useState('');
   const [genReplaceAll, setGenReplaceAll] = useState(true);
@@ -65,8 +65,8 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
 
     setFormSaidaBR(defaultSaida);
     setFormChegadaSR(addDays(defaultSaida, 1));
-    setFormSaidaSR(addDays(defaultSaida, 29));
-    setFormChegadaBR(addDays(defaultSaida, 30));
+    setFormSaidaSR(addDays(defaultSaida, 28)); // 28 regular days in Suriname
+    setFormChegadaBR(addDays(defaultSaida, 29));
     setFormNota('');
     setReplaceConflicting(false);
     setEditorError(null);
@@ -96,9 +96,11 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
   const handleApplyPreset = (diasSR: number) => {
     const base = formSaidaBR || (formChegadaSR ? addDays(formChegadaSR, -1) : '2026-01-01');
     setFormSaidaBR(base);
-    setFormChegadaSR(addDays(base, 1));
-    setFormSaidaSR(addDays(base, diasSR));
-    setFormChegadaBR(addDays(base, diasSR + 1));
+    const arrival = addDays(base, 1);
+    setFormChegadaSR(arrival);
+    const departure = addDays(arrival, Math.max(1, diasSR) - 1);
+    setFormSaidaSR(departure);
+    setFormChegadaBR(addDays(departure, 1));
     setEditorError(null);
   };
 
@@ -186,7 +188,7 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
 
     setGenPreset('28x28');
     setGenStart(lastRot ? addDays(lastRot.chegadaBR, 27) : today);
-    setGenDiasSR(29);
+    setGenDiasSR(28);
     setGenCiclo(56);
     setGenEnd(`${params.ano}-12-31`);
     setGenReplaceAll(sortedRotations.length === 0);
@@ -278,10 +280,17 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
       </div>
 
       {/* Explanatory Info Card */}
-      <div className="rounded-[18px] p-3.5 bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/[0.07] text-[13px] text-[#6e6e78] dark:text-[#98989f] leading-relaxed flex items-center justify-between">
-        <div>
-          A escala não precisa ser fixa: rotações podem ser de <strong>14x14</strong>, <strong>21x21</strong>, <strong>28x28</strong> ou dias livres. Você pode gerar o ano para frente e editar qualquer rotação inserida.
+      <div className="rounded-[18px] p-3.5 bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/[0.07] text-[13px] text-[#6e6e78] dark:text-[#98989f] leading-relaxed space-y-1.5">
+        <div className="flex items-center gap-1.5 text-[#111114] dark:text-[#f5f5f7] font-bold">
+          <span className="h-2 w-2 rounded-full bg-[#ff9f0a]" />
+          <span>Regra de Dobra Offshore:</span>
         </div>
+        <p>
+          As dobras são calculadas quando a rotação contínua tem <strong>mais de 28 dias</strong>, independente dos meses do calendário.
+        </p>
+        <p className="text-[12px] text-[#6e6e78] dark:text-[#98989f]">
+          Os primeiros 28 dias são offshore regular. Do <strong>29º dia em diante até o retorno ao Brasil</strong>, todos os dias são categorizados como dobra contínua (ex: quem fica agosto inteiro e 10 dias em setembro, tem 3 dobras em agosto e 10 dobras em setembro).
+        </p>
       </div>
 
       {/* Rotation Cards List */}
@@ -311,6 +320,7 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
                 key={rot.id}
                 index={idx + 1}
                 rotation={rot}
+                allRotations={sortedRotations}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
               />
@@ -358,9 +368,9 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
             <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
-                onClick={() => handleApplyPreset(29)}
+                onClick={() => handleApplyPreset(28)}
                 className={`py-2 px-1 rounded-xl text-[13px] font-bold border transition ${
-                  currentDurationDays === 29
+                  currentDurationDays === 28
                     ? 'bg-[#0a84ff] text-white border-[#0a84ff]'
                     : 'bg-[#f7f7fa] dark:bg-[#2c2c2e] text-[#111114] dark:text-[#f5f5f7] border-black/[0.06] dark:border-white/[0.08]'
                 }`}
@@ -369,9 +379,9 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => handleApplyPreset(15)}
+                onClick={() => handleApplyPreset(14)}
                 className={`py-2 px-1 rounded-xl text-[13px] font-bold border transition ${
-                  currentDurationDays === 15
+                  currentDurationDays === 14
                     ? 'bg-[#0a84ff] text-white border-[#0a84ff]'
                     : 'bg-[#f7f7fa] dark:bg-[#2c2c2e] text-[#111114] dark:text-[#f5f5f7] border-black/[0.06] dark:border-white/[0.08]'
                 }`}
@@ -380,9 +390,9 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => handleApplyPreset(22)}
+                onClick={() => handleApplyPreset(21)}
                 className={`py-2 px-1 rounded-xl text-[13px] font-bold border transition ${
-                  currentDurationDays === 22
+                  currentDurationDays === 21
                     ? 'bg-[#0a84ff] text-white border-[#0a84ff]'
                     : 'bg-[#f7f7fa] dark:bg-[#2c2c2e] text-[#111114] dark:text-[#f5f5f7] border-black/[0.06] dark:border-white/[0.08]'
                 }`}
@@ -391,46 +401,65 @@ export const RotationsScreen: React.FC<RotationsScreenProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => handleApplyPreset(36)}
+                onClick={() => handleApplyPreset(35)}
                 className={`py-2 px-1 rounded-xl text-[13px] font-bold border transition ${
-                  currentDurationDays === 36
+                  currentDurationDays === 35
                     ? 'bg-[#0a84ff] text-white border-[#0a84ff]'
                     : 'bg-[#f7f7fa] dark:bg-[#2c2c2e] text-[#111114] dark:text-[#f5f5f7] border-black/[0.06] dark:border-white/[0.08]'
                 }`}
               >
-                35×35
+                35d (+dobra)
               </button>
             </div>
           </div>
 
           {/* Quick duration adjuster */}
-          <div className="flex items-center justify-between rounded-xl bg-[#f7f7fa] dark:bg-[#2c2c2e] p-3 border border-black/[0.06] dark:border-white/[0.08]">
-            <div className="flex flex-col">
-              <span className="text-[14px] font-semibold text-[#111114] dark:text-[#f5f5f7]">
-                Dias no Suriname
-              </span>
-              <span className="text-[11px] text-[#6e6e78] dark:text-[#98989f]">
-                Ajusta automaticamente a saída do Suriname
-              </span>
+          <div className="flex flex-col rounded-xl bg-[#f7f7fa] dark:bg-[#2c2c2e] p-3 border border-black/[0.06] dark:border-white/[0.08] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-[14px] font-semibold text-[#111114] dark:text-[#f5f5f7]">
+                  Dias no Suriname
+                </span>
+                <span className="text-[11px] text-[#6e6e78] dark:text-[#98989f]">
+                  Ajusta automaticamente a saída do Suriname
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleChangeDuration(currentDurationDays - 1)}
+                  className="w-8 h-8 rounded-lg bg-white dark:bg-[#3a3a3c] flex items-center justify-center font-bold text-[#111114] dark:text-white shadow-xs"
+                >
+                  -
+                </button>
+                <span className="w-10 text-center font-bold tabular-nums text-[16px] text-[#0a84ff]">
+                  {currentDurationDays}d
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleChangeDuration(currentDurationDays + 1)}
+                  className="w-8 h-8 rounded-lg bg-white dark:bg-[#3a3a3c] flex items-center justify-center font-bold text-[#111114] dark:text-white shadow-xs"
+                >
+                  +
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleChangeDuration(currentDurationDays - 1)}
-                className="w-8 h-8 rounded-lg bg-white dark:bg-[#3a3a3c] flex items-center justify-center font-bold text-[#111114] dark:text-white shadow-xs"
-              >
-                -
-              </button>
-              <span className="w-10 text-center font-bold tabular-nums text-[16px] text-[#0a84ff]">
-                {currentDurationDays}d
-              </span>
-              <button
-                type="button"
-                onClick={() => handleChangeDuration(currentDurationDays + 1)}
-                className="w-8 h-8 rounded-lg bg-white dark:bg-[#3a3a3c] flex items-center justify-center font-bold text-[#111114] dark:text-white shadow-xs"
-              >
-                +
-              </button>
+
+            {/* Clear dobra status for current duration */}
+            <div className="pt-2 border-t border-black/[0.06] dark:border-white/[0.08] text-[12px]">
+              {currentDurationDays <= 28 ? (
+                <div className="flex items-center gap-1.5 text-[#30d158] font-medium">
+                  <span className="h-2 w-2 rounded-full bg-[#30d158]" />
+                  <span>Escala regular: {currentDurationDays} dias no Suriname (sem dobra)</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-[#d97706] dark:text-[#ffb340] font-medium">
+                  <span className="h-2 w-2 rounded-full bg-[#ff9f0a]" />
+                  <span>
+                    <strong>28 dias regulares + {currentDurationDays - 28} dias de dobra</strong> (a partir do 29º dia contínuo até a volta ao Brasil)
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

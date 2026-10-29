@@ -998,6 +998,23 @@ class SupabaseSyncService {
     return report;
   }
 
+  // Auth: Check active session
+  public async checkSession(): Promise<User | null> {
+    if (!this.client) return null;
+    try {
+      const { data } = await this.client.auth.getSession();
+      this.currentUser = data.session?.user ?? null;
+      if (this.currentUser) {
+        this.setStatus('synced', 'Conectado à nuvem');
+      } else {
+        this.setStatus('local');
+      }
+      return this.currentUser;
+    } catch {
+      return null;
+    }
+  }
+
   // Auth: Sign In
   public async signIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
     if (!this.client) {

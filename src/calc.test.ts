@@ -308,6 +308,79 @@ function runAcceptanceTests() {
   }
   console.log('✅ Test 8 (Offshore 28-day Escala Dobra Rule) PASSED!\n');
 
+  // Test 9: User Scenario - August Whole Month (31 days) + Initial 10 Days of September
+  // Total 41 days in SR: 28 regular + 13 dobras (3 dobras in August, 10 dobras in September)
+  const stateTest9Single: AppState = {
+    params: {
+      ...DEFAULT_PARAMS,
+      regraDobra: 'escala_28',
+      diasBaseDobra: 28,
+    },
+    holidays: [...DEFAULT_HOLIDAYS_2026],
+    rotations: [
+      {
+        id: 'rot-user-aug-sep',
+        saidaBR: '2026-07-31',
+        chegadaSR: '2026-08-01',
+        saidaSR: '2026-09-10',
+        chegadaBR: '2026-09-11',
+        nota: 'Agosto inteiro + 10 dias em Setembro',
+      },
+    ],
+    months: {},
+    updatedAt: Date.now(),
+  };
+
+  const res9Aug = computeMonth(stateTest9Single, 2026, 8);
+  if (res9Aug.dias !== 31) throw new Error(`Test 9 Failed: expected 31 dias in August, got ${res9Aug.dias}`);
+  if (res9Aug.dobra !== 3) throw new Error(`Test 9 Failed: expected 3 dobras in August, got ${res9Aug.dobra}`);
+  if (res9Aug.off !== 28) throw new Error(`Test 9 Failed: expected 28 regular offshore days in August, got ${res9Aug.off}`);
+
+  const res9Sep = computeMonth(stateTest9Single, 2026, 9);
+  if (res9Sep.dias !== 10) throw new Error(`Test 9 Failed: expected 10 dias in September, got ${res9Sep.dias}`);
+  if (res9Sep.dobra !== 10) throw new Error(`Test 9 Failed: expected 10 dobras in September, got ${res9Sep.dobra}`);
+  if (res9Sep.off !== 0) throw new Error(`Test 9 Failed: expected 0 regular offshore days in September, got ${res9Sep.off}`);
+  for (let day = 1; day <= 10; day++) {
+    const dInfo = res9Sep.days.find((d) => d.day === day);
+    if (!dInfo?.isDobra) throw new Error(`Test 9 Failed: September day ${day} should be dobra`);
+  }
+
+  // Also test when entered as two chained rotations
+  const stateTest9Chained: AppState = {
+    params: {
+      ...DEFAULT_PARAMS,
+      regraDobra: 'escala_28',
+      diasBaseDobra: 28,
+    },
+    holidays: [...DEFAULT_HOLIDAYS_2026],
+    rotations: [
+      {
+        id: 'rot-aug',
+        saidaBR: '2026-07-31',
+        chegadaSR: '2026-08-01',
+        saidaSR: '2026-08-31',
+        chegadaBR: '2026-09-01',
+        nota: 'Agosto',
+      },
+      {
+        id: 'rot-sep',
+        saidaBR: '2026-08-31',
+        chegadaSR: '2026-09-01',
+        saidaSR: '2026-09-10',
+        chegadaBR: '2026-09-11',
+        nota: 'Setembro',
+      },
+    ],
+    months: {},
+    updatedAt: Date.now(),
+  };
+
+  const res9SepChained = computeMonth(stateTest9Chained, 2026, 9);
+  if (res9SepChained.dobra !== 10) {
+    throw new Error(`Test 9 Chained Failed: expected 10 dobras in September, got ${res9SepChained.dobra}`);
+  }
+  console.log('✅ Test 9 (August 31d + September 10d Continuous Dobra Rule) PASSED!\n');
+
   console.log('🎉 ALL ACCEPTANCE TESTS PASSED SUCCESSFULLY WITH ACCURACY WITHIN R$ 0.01!');
 }
 

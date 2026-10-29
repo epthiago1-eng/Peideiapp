@@ -22,6 +22,7 @@ export const YearScreen: React.FC<YearScreenProps> = ({
   let totalProv = 0;
   let totalNet = 0;
   let totalDiasSR = 0;
+  let totalDobra = 0;
 
   for (let m = 1; m <= 12; m++) {
     const calc = computeMonth(state, currentYear, m);
@@ -29,6 +30,7 @@ export const YearScreen: React.FC<YearScreenProps> = ({
     totalProv += calc.prov;
     totalNet += calc.net;
     totalDiasSR += calc.dias;
+    totalDobra += calc.dobra;
   }
 
   const confirmedCount = monthsData.filter((m) => m.isConfirmed).length;
@@ -99,9 +101,16 @@ export const YearScreen: React.FC<YearScreenProps> = ({
           <span className="text-[12px] font-semibold uppercase tracking-wider text-[#6e6e78] dark:text-[#98989f]">
             Dias no Suriname
           </span>
-          <span className="mt-2 text-[20px] min-[380px]:text-[22px] font-extrabold tabular-nums text-[#111114] dark:text-[#f5f5f7]">
-            {totalDiasSR} <span className="text-[13px] font-normal text-[#6e6e78] dark:text-[#98989f]">dias</span>
-          </span>
+          <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-[20px] min-[380px]:text-[22px] font-extrabold tabular-nums text-[#111114] dark:text-[#f5f5f7]">
+              {totalDiasSR} <span className="text-[13px] font-normal text-[#6e6e78] dark:text-[#98989f]">dias</span>
+            </span>
+            {totalDobra > 0 && (
+              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-[#ff9f0a]/15 text-[#ff9f0a]">
+                {totalDobra} {totalDobra === 1 ? 'dobra' : 'dobras'}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* KPI 4: Média líquida/mês */}
@@ -204,9 +213,14 @@ export const YearScreen: React.FC<YearScreenProps> = ({
                       Salário ajustado
                     </span>
                   )}
+                  {m.dobra > 0 && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#ff9f0a]/15 text-[#ff9f0a]">
+                      +{m.dobra} {m.dobra === 1 ? 'dobra' : 'dobras'}
+                    </span>
+                  )}
                 </div>
                 <span className="text-[12px] text-[#6e6e78] dark:text-[#98989f] mt-0.5">
-                  {m.dias} dias SR · Salário: {formatCurrency(m.salario)} · Câmbio: R$ {m.cambio.toFixed(2)}
+                  {m.dias} dias SR {m.dobra > 0 ? `(${m.off} reg + ${m.dobra} dobra)` : ''} · Salário: {formatCurrency(m.salario)} · Câmbio: R$ {m.cambio.toFixed(2)}
                 </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">

@@ -277,7 +277,7 @@ export const MonthOverridesCard: React.FC<MonthOverridesCardProps> = ({
               Dias de dobra
             </span>
             <span className="text-[12px] text-[#6e6e78] dark:text-[#98989f]">
-              Automático: {dobraAuto} (domingos/feriados no Suriname)
+              Automático: {dobraAuto} {params.regraDobra === 'domingos_feriados' ? '(domingos/feriados no Suriname)' : '(rotação contínua > 28 dias)'}
             </span>
           </div>
           <input

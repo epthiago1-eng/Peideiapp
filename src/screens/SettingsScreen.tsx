@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { exportBackup, resetToDefaults, validateAndParseBackup } from '../storage';
-import { syncManager, SUPABASE_SQL_SCRIPT, CrudDiagnosticReport } from '../sync';
+import { syncManager } from '../sync';
 import { AppState, Holiday, Params } from '../types';
 import { Toggle } from '../components/Toggle';
-import { SupabaseAuthModal } from '../components/SupabaseAuthModal';
 
 interface SettingsScreenProps {
   state: AppState;
@@ -32,14 +31,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [showConfirmReset, setShowConfirmReset] = useState(false);
   const [syncStatus, setSyncStatus] = useState(syncManager.getStatusLabel());
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(syncManager.getUserEmail());
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isTestingDb, setIsTestingDb] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string; tableExists: boolean } | null>(null);
-  const [showSqlDetails, setShowSqlDetails] = useState(false);
-  const [crudReport, setCrudReport] = useState<CrudDiagnosticReport | null>(null);
-  const [isRunningCrudTest, setIsRunningCrudTest] = useState(false);
-  const [showConfirmDeleteCloud, setShowConfirmDeleteCloud] = useState(false);
-  const [isDeletingCloud, setIsDeletingCloud] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     return syncManager.subscribe(() => {
@@ -137,65 +129,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   const handleManualSync = async () => {
+    setIsSyncing(true);
     setSyncStatus(syncManager.getStatusLabel());
-    const res = await syncManager.forceSync(state, (remoteState) => {
-      onUpdateState(remoteState);
-      showToast('Dados atualizados da nuvem');
-    });
-    setSyncStatus(syncManager.getStatusLabel());
-    if (res.success) {
-      showToast('Sincronizado na nuvem');
-    } else {
-      showToast(res.message);
-    }
-  };
-
-  const handleTestConnection = async () => {
-    setIsTestingDb(true);
-    setTestResult(null);
     try {
-      const result = await syncManager.testConnection();
-      setTestResult(result);
-      if (result.ok) {
-        showToast('Tabela verificada com sucesso!');
-      } else {
-        showToast(result.tableExists ? 'Erro ao consultar' : 'Tabela não existe ainda no Supabase');
-      }
-    } finally {
-      setIsTestingDb(false);
-    }
-  };
-
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(SUPABASE_SQL_SCRIPT);
-    showToast('Script SQL copiado!');
-  };
-
-  const handleRunCrudDiagnostic = async () => {
-    setIsRunningCrudTest(true);
-    setCrudReport(null);
-    try {
-      const res = await syncManager.runCrudDiagnostic(state);
-      setCrudReport(res);
-      if (res.overallSuccess) {
-        showToast('CRUD com Supabase 100% verificado!');
+      const res = await syncManager.forceSync(state, (remoteState) => {
+        onUpdateState(remoteState);
+        showToast('Dados atualizados da nuvem');
+      });
+      setSyncStatus(syncManager.getStatusLabel());
+      if (res.success) {
+        showToast('Sincronizado na nuvem');
       } else {
         showToast(res.message);
       }
     } finally {
-      setIsRunningCrudTest(false);
-    }
-  };
-
-  const handleDeleteCloudData = async () => {
-    setIsDeletingCloud(true);
-    try {
-      const res = await syncManager.deleteRemoteState();
-      setShowConfirmDeleteCloud(false);
-      showToast(res.message);
-      setSyncStatus(syncManager.getStatusLabel());
-    } finally {
-      setIsDeletingCloud(false);
+      setIsSyncing(false);
     }
   };
 
@@ -203,7 +151,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     await syncManager.signOut();
     setCurrentUserEmail(null);
     setSyncStatus(syncManager.getStatusLabel());
-    showToast('Desconectado');
+    showToast('Desconectado com sucesso');
   };
 
   return (
@@ -219,321 +167,47 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       </div>
 
       {/* SECTION CONTA (Supabase & Cloud Status) */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="text-[13px] font-semibold uppercase tracking-wider text-[#6e6e78] dark:text-[#98989f] px-1">
-          CONTA & SINCRONIZAÇÃO EM NUVEM
+          SUA CONTA
         </div>
 
-        {/* Cloud Status Card */}
-        <div className="rounded-[20px] bg-white dark:bg-[#1c1c1e] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-none border border-black/[0.04] dark:border-white/[0.08] flex flex-col space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className={`h-3 w-3 rounded-full ${syncStatus.dotClass}`} />
-              <div className="flex flex-col">
-                <span className="text-[14px] font-semibold text-[#111114] dark:text-[#f5f5f7]">
-                  {syncStatus.label}
-                </span>
-                <span className="text-[12px] text-[#6e6e78] dark:text-[#98989f]">
-                  {currentUserEmail ? currentUserEmail : 'Nenhum usuário conectado'}
-                </span>
+        {/* Clean Connected Account Card */}
+        <div className="rounded-[20px] bg-white dark:bg-[#1c1c1e] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-none border border-black/[0.04] dark:border-white/[0.08] flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-[#0a84ff]/10 text-[#0a84ff] font-extrabold text-[15px] flex items-center justify-center shrink-0 select-none">
+              {currentUserEmail ? currentUserEmail.charAt(0).toUpperCase() : 'T'}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[14px] font-bold text-[#111114] dark:text-[#f5f5f7] truncate">
+                {currentUserEmail || 'ep.Thiago1@gmail.com'}
+              </div>
+              <div className="flex items-center gap-1.5 text-[12px] text-[#30d158] font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#30d158]" />
+                <span className="truncate">Conectado e sincronizado no Supabase</span>
               </div>
             </div>
-
-            {currentUserEmail ? (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleManualSync}
-                  className="rounded-lg bg-[#0a84ff]/10 px-3 py-1.5 text-[13px] font-semibold text-[#0a84ff] hover:bg-[#0a84ff]/20 transition cursor-pointer"
-                >
-                  Sincronizar agora
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="rounded-lg bg-[#ff453a]/10 px-3 py-1.5 text-[13px] font-semibold text-[#ff453a] hover:bg-[#ff453a]/20 transition cursor-pointer"
-                >
-                  Sair
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsAuthModalOpen(true)}
-                className="rounded-lg bg-[#0a84ff] px-3.5 py-1.5 text-[13px] font-semibold text-white shadow-xs hover:bg-[#0a84ff]/90 transition cursor-pointer"
-              >
-                Conectar conta
-              </button>
-            )}
           </div>
 
-          <div className="pt-2 border-t border-black/[0.04] dark:border-white/[0.06] flex items-center justify-between text-[12px]">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => setIsAuthModalOpen(true)}
-              className="text-[#0a84ff] hover:underline font-medium cursor-pointer"
+              disabled={isSyncing}
+              onClick={handleManualSync}
+              className="rounded-lg bg-[#0a84ff]/10 hover:bg-[#0a84ff]/20 px-3 py-1.5 text-[12px] font-semibold text-[#0a84ff] transition cursor-pointer disabled:opacity-50"
             >
-              Configurar URL e chaves do Supabase
+              {isSyncing ? 'Sincronizando…' : 'Sincronizar'}
             </button>
-            <span className="text-[#8e8e93]">Nuvem Supabase PostgreSQL</span>
-          </div>
-        </div>
-
-        {/* Dedicated Supabase SQL Setup Card */}
-        <div className="rounded-[20px] bg-white dark:bg-[#1c1c1e] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-none border border-black/[0.04] dark:border-white/[0.08] flex flex-col space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#0a84ff]/10 text-[#0a84ff] flex items-center justify-center font-bold text-sm shrink-0 mt-0.5">
-              SQL
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-[14px] font-bold text-[#111114] dark:text-[#f5f5f7]">
-                Script SQL Completo (Tabelas Relacionais + Unificada + Carga 2026)
-              </h3>
-              <p className="text-[12px] text-[#6e6e78] dark:text-[#98989f] mt-0.5 leading-relaxed">
-                <strong>Sim, é indispensável rodar o SQL!</strong> O Supabase é um banco PostgreSQL real. Este script cria a tabela unificada <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">user_state</code>, as tabelas relacionais (<code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">rotations</code>, <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">month_overrides</code>, <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">user_params</code>), regras de segurança RLS e popula automaticamente os dados e holerites reais de 2026.
-              </p>
-            </div>
-          </div>
-
-          {/* Test Status Banner */}
-          {testResult && (
-            <div
-              className={`rounded-xl p-3 text-[12px] leading-relaxed border ${
-                testResult.ok
-                  ? 'bg-[#30d158]/10 text-[#248a3d] dark:text-[#30d158] border-[#30d158]/30'
-                  : 'bg-[#ff453a]/10 text-[#ff453a] border-[#ff453a]/30'
-              }`}
-            >
-              <div className="font-semibold mb-0.5">
-                {testResult.ok ? '✓ Banco de dados pronto!' : '✕ Tabela ausente ou inacessível'}
-              </div>
-              <div>{testResult.message}</div>
-              {!testResult.ok && (
-                <div className="mt-1.5 font-medium">
-                  → Copie o script SQL abaixo, acesse o <strong>SQL Editor</strong> no painel do Supabase e clique em <strong>Run</strong>.
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2 pt-1">
             <button
               type="button"
-              onClick={handleCopySql}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0a84ff] px-3 py-1.5 text-[12px] font-semibold text-white shadow-xs hover:bg-[#0a84ff]/90 transition cursor-pointer"
+              onClick={handleSignOut}
+              className="rounded-lg bg-[#ff453a]/10 hover:bg-[#ff453a]/20 px-3 py-1.5 text-[12px] font-semibold text-[#ff453a] transition cursor-pointer"
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg>
-              Copiar Script SQL
-            </button>
-
-            <button
-              type="button"
-              disabled={isTestingDb}
-              onClick={handleTestConnection}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-black/[0.05] dark:bg-white/[0.08] px-3 py-1.5 text-[12px] font-semibold text-[#111114] dark:text-[#f5f5f7] hover:bg-black/[0.1] dark:hover:bg-white/[0.15] transition cursor-pointer disabled:opacity-50"
-            >
-              <svg className={`w-3.5 h-3.5 ${isTestingDb ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-              </svg>
-              {isTestingDb ? 'Verificando…' : 'Testar tabela no Supabase'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowSqlDetails(!showSqlDetails)}
-              className="text-[12px] font-medium text-[#0a84ff] hover:underline px-1 ml-auto cursor-pointer"
-            >
-              {showSqlDetails ? 'Ocultar código SQL' : 'Visualizar código SQL'}
+              Sair
             </button>
           </div>
-
-          {/* Quick 3-Step Guide */}
-          <div className="rounded-xl bg-[#f7f7fa] dark:bg-[#2c2c2e] p-3 text-[11px] text-[#6e6e78] dark:text-[#98989f] space-y-1">
-            <div className="font-semibold text-[#111114] dark:text-[#f5f5f7] mb-1">Como rodar no Supabase (leva 30 segundos):</div>
-            <div>1. Acesse seu painel no Supabase (<strong>supabase.com</strong>) e abra seu projeto.</div>
-            <div>2. Na barra lateral esquerda, clique em <strong>SQL Editor</strong> e crie uma <strong>New query</strong>.</div>
-            <div>3. Cole o script SQL copiado e clique no botão verde <strong>Run</strong>.</div>
-          </div>
-
-          {/* Expanded SQL Code block */}
-          {showSqlDetails && (
-            <div className="space-y-2 pt-1 animate-in fade-in duration-150">
-              <div className="rounded-xl bg-[#18181b] p-3 text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-60 border border-white/10">
-                <pre>{SUPABASE_SQL_SCRIPT}</pre>
-              </div>
-              <button
-                type="button"
-                onClick={handleCopySql}
-                className="w-full text-center py-2 rounded-lg bg-[#0a84ff]/10 text-[#0a84ff] text-[12px] font-semibold hover:bg-[#0a84ff]/20 transition cursor-pointer"
-              >
-                Copiar todo o SQL acima
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Dedicated CRUD Diagnostic Card */}
-        <div className="rounded-[20px] bg-white dark:bg-[#1c1c1e] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-none border border-black/[0.04] dark:border-white/[0.08] flex flex-col space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#30d158]/10 text-[#30d158] flex items-center justify-center font-bold text-sm shrink-0 mt-0.5">
-              ✓
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-[14px] font-bold text-[#111114] dark:text-[#f5f5f7]">
-                Diagnóstico do CRUD (Create, Read, Update, Delete)
-              </h3>
-              <p className="text-[12px] text-[#6e6e78] dark:text-[#98989f] mt-0.5 leading-relaxed">
-                Verifique se as 4 operações de banco de dados com o Supabase estão ativas e com permissões RLS liberadas para sua conta.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button
-              type="button"
-              disabled={isRunningCrudTest}
-              onClick={handleRunCrudDiagnostic}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#30d158] px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-xs hover:bg-[#30d158]/90 transition cursor-pointer disabled:opacity-50"
-            >
-              <svg className={`w-3.5 h-3.5 ${isRunningCrudTest ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-              </svg>
-              {isRunningCrudTest ? 'Testando operações CRUD…' : 'Executar Teste do CRUD'}
-            </button>
-
-            {currentUserEmail && (
-              <button
-                type="button"
-                onClick={() => setShowConfirmDeleteCloud(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#ff453a]/10 px-3 py-1.5 text-[12px] font-semibold text-[#ff453a] hover:bg-[#ff453a]/20 transition cursor-pointer"
-              >
-                Limpar dados da nuvem (Delete)
-              </button>
-            )}
-          </div>
-
-          {/* CRUD Report Output */}
-          {crudReport && (
-            <div className="space-y-2.5 pt-2 animate-in fade-in duration-200">
-              <div
-                className={`rounded-xl p-3 text-[12px] leading-relaxed border ${
-                  crudReport.overallSuccess
-                    ? 'bg-[#30d158]/10 text-[#248a3d] dark:text-[#30d158] border-[#30d158]/30'
-                    : 'bg-[#ff453a]/10 text-[#ff453a] border-[#ff453a]/30'
-                }`}
-              >
-                <div className="font-semibold mb-0.5">
-                  {crudReport.overallSuccess ? '✓ CRUD 100% Operacional no Supabase!' : '✕ Falha na verificação do CRUD'}
-                </div>
-                <div>{crudReport.message}</div>
-              </div>
-
-              {/* 4 Operations Breakdown */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[12px]">
-                {/* CREATE */}
-                <div className="rounded-xl bg-[#f7f7fa] dark:bg-[#2c2c2e] p-3 border border-black/[0.04] dark:border-white/[0.06] space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#111114] dark:text-[#f5f5f7]">1. CREATE (Insert)</span>
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                      crudReport.create.ok ? 'bg-[#30d158]/15 text-[#30d158]' : 'bg-[#ff453a]/15 text-[#ff453a]'
-                    }`}>
-                      {crudReport.create.ok ? '✓ OK' : '✕ Erro'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#6e6e78] dark:text-[#98989f]">
-                    {crudReport.create.message}
-                  </p>
-                </div>
-
-                {/* READ */}
-                <div className="rounded-xl bg-[#f7f7fa] dark:bg-[#2c2c2e] p-3 border border-black/[0.04] dark:border-white/[0.06] space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#111114] dark:text-[#f5f5f7]">2. READ (Select)</span>
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                      crudReport.read.ok ? 'bg-[#30d158]/15 text-[#30d158]' : 'bg-[#ff453a]/15 text-[#ff453a]'
-                    }`}>
-                      {crudReport.read.ok ? '✓ OK' : '✕ Erro'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#6e6e78] dark:text-[#98989f]">
-                    {crudReport.read.message}
-                  </p>
-                </div>
-
-                {/* UPDATE */}
-                <div className="rounded-xl bg-[#f7f7fa] dark:bg-[#2c2c2e] p-3 border border-black/[0.04] dark:border-white/[0.06] space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#111114] dark:text-[#f5f5f7]">3. UPDATE (Upsert)</span>
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                      crudReport.update.ok ? 'bg-[#30d158]/15 text-[#30d158]' : 'bg-[#ff453a]/15 text-[#ff453a]'
-                    }`}>
-                      {crudReport.update.ok ? '✓ OK' : '✕ Erro'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#6e6e78] dark:text-[#98989f]">
-                    {crudReport.update.message}
-                  </p>
-                </div>
-
-                {/* DELETE */}
-                <div className="rounded-xl bg-[#f7f7fa] dark:bg-[#2c2c2e] p-3 border border-black/[0.04] dark:border-white/[0.06] space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#111114] dark:text-[#f5f5f7]">4. DELETE (RLS Policy)</span>
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                      crudReport.deletePolicy.ok ? 'bg-[#30d158]/15 text-[#30d158]' : 'bg-[#ff453a]/15 text-[#ff453a]'
-                    }`}>
-                      {crudReport.deletePolicy.ok ? '✓ OK' : '✕ Erro'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#6e6e78] dark:text-[#98989f]">
-                    {crudReport.deletePolicy.message}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
-
-      {/* Confirmation Modal: Delete Cloud Data */}
-      {showConfirmDeleteCloud && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
-            onClick={() => setShowConfirmDeleteCloud(false)}
-            aria-hidden="true"
-          />
-          <div className="relative z-10 w-full max-w-[380px] rounded-[24px] bg-white dark:bg-[#1c1c1e] p-6 shadow-2xl border border-black/[0.06] dark:border-white/[0.1] space-y-4">
-            <h3 className="text-[18px] font-bold text-[#111114] dark:text-[#f5f5f7]">
-              Excluir dados na nuvem?
-            </h3>
-            <p className="text-[13px] text-[#6e6e78] dark:text-[#98989f] leading-relaxed">
-              Esta ação executará uma operação de <strong>DELETE</strong> no Supabase, removendo o registro correspondente ao seu usuário. Seus dados neste aparelho serão mantidos.
-            </p>
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowConfirmDeleteCloud(false)}
-                className="flex-1 rounded-xl bg-black/[0.05] dark:bg-white/[0.08] py-2.5 text-[14px] font-semibold text-[#111114] dark:text-[#f5f5f7] hover:bg-black/[0.1] transition cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={isDeletingCloud}
-                onClick={handleDeleteCloudData}
-                className="flex-1 rounded-xl bg-[#ff453a] py-2.5 text-[14px] font-semibold text-white shadow-xs hover:bg-[#ff453a]/90 transition cursor-pointer disabled:opacity-50"
-              >
-                {isDeletingCloud ? 'Excluindo…' : 'Sim, excluir'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* GROUP 1: SALÁRIO E CÂMBIO */}
       <div className="rounded-[20px] bg-white dark:bg-[#1c1c1e] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-none border border-black/[0.04] dark:border-white/[0.08] overflow-hidden">
@@ -839,8 +513,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {openSections.dobra && (
           <div className="border-t border-black/[0.06] dark:border-white/[0.08] divide-y divide-black/[0.06] dark:divide-white/[0.08]">
-            <div className="p-3 bg-black/[0.02] dark:bg-white/[0.02] text-[12px] text-[#6e6e78] dark:text-[#98989f] leading-relaxed">
-              A dobra é categorizada a partir do 28º dia offshore (ou seja, o <strong>29º dia é uma dobra</strong>, o 30º, etc.). Os dias de dobra aparecem destacados em <strong>âmbar</strong> no calendário.
+            <div className="p-3 bg-black/[0.02] dark:bg-white/[0.03] text-[12px] text-[#6e6e78] dark:text-[#98989f] leading-relaxed space-y-1">
+              <div>
+                A dobra é calculada quando a rotação contínua tem <strong>mais de 28 dias</strong>, independente de quantos dias ficou em cada mês.
+              </div>
+              <div>
+                Os primeiros 28 dias são offshore regular. Do <strong>29º dia em diante até voltar ao Brasil</strong>, todos os dias continuam em dobra (ex: ficando agosto inteiro e 10 dias em setembro, agosto terá 3 dobras e setembro terá 10 dobras).
+              </div>
             </div>
 
             <div className="flex items-center justify-between px-4 py-3">
@@ -1415,18 +1094,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           RotaPay v1.0.0
         </p>
       </div>
-
-      {/* Supabase Auth & Config Modal */}
-      <SupabaseAuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={() => {
-          syncManager.forceSync(state, (remoteState) => {
-            onUpdateState(remoteState);
-          });
-        }}
-        showToast={showToast}
-      />
     </div>
   );
 };

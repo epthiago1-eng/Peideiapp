@@ -1,6 +1,6 @@
 {
-  "summary":  "Plano de implementação para pré-configurar o Supabase no aplicativo e garantir que ao abrir no Netlify o app já inicie conectado, com pré-preenchimento do e-mail ep.Thiago1@gmail.com e sincronização automática ativa.",
-  "updatedAt":  "2026-10-29T11:17:36.102691305Z",
+  "summary":  "Plano de implementação para transformar o RotaPay em um aplicativo com autenticação obrigatória no início (Login Gatekeeper com Supabase), remoção de controles técnicos da tela de ajustes e sincronização permanente na nuvem.",
+  "updatedAt":  "2026-10-29T13:07:58.664033017Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

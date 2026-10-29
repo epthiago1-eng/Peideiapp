@@ -49,7 +49,7 @@ export const MonthCalendar: React.FC<MonthCalendarProps> = ({ year, month, days 
           }
           if (d.isDobra) {
             if (d.dayInRotation && d.dayInRotation > 28) {
-              hints.push(`Dobra de escala (${d.dayInRotation}º dia offshore)`);
+              hints.push(`Dobra de escala (${d.dayInRotation}º dia contínuo de embarque · > 28 dias)`);
             } else {
               hints.push('Dobra de escala');
             }
@@ -119,7 +119,7 @@ export const MonthCalendar: React.FC<MonthCalendarProps> = ({ year, month, days 
           <span className="h-3 w-3 rounded-md bg-[#ff9f0a]/20 border border-[#ff9f0a]/60 flex items-center justify-center">
             <span className="h-1.5 w-1.5 rounded-full bg-[#ff9f0a]" />
           </span>
-          <span>Dobra (a partir do 29º dia)</span>
+          <span>Dobra (a partir do 29º dia contínuo até voltar ao Brasil)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-md border-2 border-[#bf5af2]" />
